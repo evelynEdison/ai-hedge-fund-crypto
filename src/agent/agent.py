@@ -3,6 +3,10 @@ from langchain_core.messages import HumanMessage
 from datetime import datetime
 from utils import Interval, save_graph_as_png, parse_str_to_json
 from .workflow import Workflow
+# Ensure these imports are correct and Client is available
+from src.gateway.binance.client import Client 
+from src.gateway.binance.execution import place_order_from_signal
+from src.utils.settings import load_settings
 
 
 class Agent:
@@ -71,7 +75,80 @@ class Agent:
             },
         )
         # print("the final state:", final_state["data"]["analyst_signals"])
+        decisions = parse_str_to_json(final_state["messages"][-1].content)
+        analyst_signals = final_state["data"]["analyst_signals"] # Extracted for clarity
+        order_results = [] # Initialize order_results for all cases
+
+        current_settings = load_settings()
+
+        # Check if live_trading_enabled is True as per current subtask instructions
+        if hasattr(current_settings, 'live_trading_enabled') and current_settings.live_trading_enabled is True:
+            # API keys expected under a 'trading' attribute in settings as per subtask
+            # e.g. current_settings.trading.BINANCE_API_KEY
+            # Using getattr for safe access to nested attributes
+            trading_settings = getattr(current_settings, 'trading', None)
+            api_key = getattr(trading_settings, 'BINANCE_API_KEY', None) if trading_settings else None
+            api_secret = getattr(trading_settings, 'BINANCE_API_SECRET', None) if trading_settings else None
+
+            if api_key and api_secret:
+                try:
+                    binance_client = Client(api_key=api_key, api_secret=api_secret)
+                    
+                    if isinstance(decisions, dict):
+                        for symbol, signal_data in decisions.items():
+                            if isinstance(signal_data, dict):
+                                # Construct signal ensuring all necessary keys from signal_data are included
+                                signal = {
+                                    "symbol": symbol,
+                                    "action": signal_data.get("action"),
+                                    "quantity": signal_data.get("quantity")
+                                    # Add other relevant fields from signal_data if place_order_from_signal expects them
+                                }
+                                
+                                # Basic validation of signal components
+                                if not all(key in signal and signal[key] is not None for key in ["symbol", "action", "quantity"]):
+                                    order_results.append({
+                                        "status": "error", 
+                                        "message": f"Signal for {symbol} is incomplete or missing essential fields (action, quantity). Signal: {signal}",
+                                        "symbol": symbol
+                                    })
+                                    continue # Move to next signal
+
+                                result = place_order_from_signal(
+                                    signal, 
+                                    binance_client, 
+                                    live_trading_enabled=True # Explicitly pass True
+                                )
+                                order_results.append(result)
+                            else:
+                                order_results.append({
+                                    "status": "error",
+                                    "message": f"Signal data for {symbol} is not a dictionary: {signal_data}",
+                                    "symbol": symbol
+                                })
+                    elif decisions is not None: # decisions might be a string if JSON parsing failed
+                         order_results.append({
+                            "status": "error",
+                            "message": f"Decisions format is invalid (expected dict, got {type(decisions).__name__}): {decisions}"
+                        })
+                    # If decisions is None (e.g. from parse_str_to_json), it might mean no valid decisions.
+                    # This case is implicitly handled as the loop `for symbol, signal_data in decisions.items()` won't run.
+
+                except Exception as e:
+                    # Catch errors during client initialization or other unexpected issues
+                    order_results.append({
+                        "status": "critical_error",
+                        "message": f"Failed to initialize Binance client or critical error in live trading block: {str(e)}"
+                    })
+            else:
+                # Live trading enabled but API keys are missing
+                order_results.append({
+                    "status": "config_error",
+                    "message": "Live trading mode is enabled, but Binance API keys are missing or not found under 'settings.trading.BINANCE_API_KEY' and 'settings.trading.BINANCE_API_SECRET'."
+                })
+        
         return {
-            "decisions": parse_str_to_json(final_state["messages"][-1].content),
-            "analyst_signals": final_state["data"]["analyst_signals"],
+            "decisions": decisions,
+            "analyst_signals": analyst_signals,
+            "order_results": order_results, # Always include order_results
         }
