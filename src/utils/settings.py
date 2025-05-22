@@ -35,7 +35,7 @@ class Settings(BaseSettings):
         return self
 
 
-class LLMSettings(BaseModel):
+class LLMSettings(BaseSettings): # Changed from BaseModel to BaseSettings
     GEMINI_API_KEY: str = ""
 
 
