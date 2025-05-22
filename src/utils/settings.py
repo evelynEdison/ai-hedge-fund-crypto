@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     show_reasoning: bool
     show_agent_graph: bool = True
     signals: SignalSettings
+    llm: 'LLMSettings'  # Forward reference for LLMSettings
 
     @model_validator(mode='after')
     def check_primary_interval_in_intervals(self):
@@ -34,9 +35,16 @@ class Settings(BaseSettings):
         return self
 
 
+class LLMSettings(BaseModel):
+    GEMINI_API_KEY: str = ""
+
+
 def load_settings(yaml_path: str = "config.yaml") -> Settings:
     with open(yaml_path, "r") as f:
         yaml_data = yaml.safe_load(f)
+    # Ensure 'llm' key exists in yaml_data, if not, provide a default
+    if 'llm' not in yaml_data:
+        yaml_data['llm'] = {} # Provide default empty dict for llm settings
     return Settings(**yaml_data)
 
 

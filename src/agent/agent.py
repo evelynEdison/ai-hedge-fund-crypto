@@ -32,7 +32,7 @@ class Agent:
             show_reasoning (bool, optional): If True, includes model reasoning in the output. Defaults to False.
             show_agent_graph (bool, optional): If True, saves and displays the graph of the agent workflow. Defaults to False.
             model_name (str, optional): The name of the LLM model to use. Defaults to "gpt-4o".
-            model_provider (str, optional): The provider of the LLM model. Defaults to "OpenAI".
+            model_provider (str, optional): The provider of the LLM model (e.g., "OpenAI", "Gemini"). Defaults to "OpenAI".
 
         Returns:
         None

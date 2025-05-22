@@ -1,7 +1,7 @@
 import os
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_openai import ChatOpenAI
-
+from .gemini import GeminiLLM
 
 openai_llm = ChatOpenAI(
     api_key=os.getenv("OPENAI_API_KEY"),
@@ -10,4 +10,4 @@ openai_llm = ChatOpenAI(
 
 json_parser = JsonOutputParser()
 
-__all__ = ["openai_llm", "json_parser"]
+__all__ = ["openai_llm", "json_parser", "GeminiLLM"]

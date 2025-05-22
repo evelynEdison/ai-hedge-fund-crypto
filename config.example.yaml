@@ -11,4 +11,6 @@ signals:
   tickers: ["BTCUSDT"]
   strategies: ['MacdStrategy']
 # , "RSIStrategy"]
+llm:
+  GEMINI_API_KEY: "YOUR_GEMINI_API_KEY_HERE"
 
